@@ -3,6 +3,7 @@ import type { Project, Deployment } from "@cloudflare/types";
 import { context, getOctokit } from "@actions/github";
 import shellac from "shellac";
 import { fetch } from "undici";
+import { setTimeout } from "timers/promises";
 import { env } from "process";
 import path from "node:path";
 
@@ -53,9 +54,20 @@ try {
 			`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments`,
 			{ headers: { Authorization: `Bearer ${apiToken}` } }
 		);
-		const {
+		let {
 			result: [deployment],
 		} = (await response.json()) as { result: Deployment[] };
+		const deploymentId = deployment.id;
+
+		while (deployment.latest_stage.status === 'active' || deployment.latest_stage.status === 'idle') {
+			await setTimeout(1000);
+			const response = await fetch(
+				`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`,
+				{ headers: { Authorization: `Bearer ${apiToken}` } }
+			);
+			const { result } = (await response.json()) as { result: Deployment };
+			deployment = result;
+		}
 
 		return deployment;
 	};

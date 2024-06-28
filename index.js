@@ -22059,6 +22059,7 @@ var src_default = shellac;
 
 // src/index.ts
 var import_undici = __toESM(require_undici());
+var import_promises = require("timers/promises");
 var import_process = require("process");
 var import_node_path = __toESM(require("path"));
 try {
@@ -22100,9 +22101,19 @@ try {
       `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments`,
       { headers: { Authorization: `Bearer ${apiToken}` } }
     );
-    const {
+    let {
       result: [deployment]
     } = await response.json();
+    const deploymentId = deployment.id;
+    while (deployment.latest_stage.status === "active" || deployment.latest_stage.status === "idle") {
+      await (0, import_promises.setTimeout)(1e3);
+      const response2 = await (0, import_undici.fetch)(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`,
+        { headers: { Authorization: `Bearer ${apiToken}` } }
+      );
+      const { result } = await response2.json();
+      deployment = result;
+    }
     return deployment;
   };
   const githubBranch = import_process.env.GITHUB_HEAD_REF || import_process.env.GITHUB_REF_NAME;
